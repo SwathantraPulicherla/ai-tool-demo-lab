@@ -143,9 +143,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const testExitCode = ${{ steps.test-execution.outcome == 'success' }};
-            const testSummary = `${{ steps.test-summary.outputs.summary }}`;
-            const coverageAvailable = `${{ steps.test-summary.outputs.coverage_available }}`;
+            const testExitCode = '${{ steps.test-execution.outcome }}' === 'success';
+            const testSummary = '${{ steps.test-summary.outputs.summary }}';
+            const coverageAvailable = '${{ steps.test-summary.outputs.coverage_available }}';
 
             let body;
             if (testExitCode) {
