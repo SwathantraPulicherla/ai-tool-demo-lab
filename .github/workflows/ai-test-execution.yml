@@ -3,17 +3,12 @@ name: AI Test Execution
 on:
   issues:
     types: [opened, labeled, edited]
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - 'ai/generated-tests/**'
   workflow_dispatch:  # Manual trigger for testing
 
 # Allow GitHub Pages deployment
 permissions:
   pages: write
   id-token: write
-  contents: write  # required for pushing branches and creating PRs
 
 # Allow one concurrent deployment
 concurrency:
@@ -22,7 +17,7 @@ concurrency:
 
 jobs:
   cleanup-artifacts:
-    if: contains(github.event.issue.labels.*.name, 'ai-test-run') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'ai/generated-tests/'))
+    if: contains(github.event.issue.labels.*.name, 'ai-test-run') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Delete in-progress github-pages artifacts
@@ -59,7 +54,7 @@ jobs:
             }
 
   run-tests:
-    if: contains(github.event.issue.labels.*.name, 'ai-test-run') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'ai/generated-tests/'))
+    if: contains(github.event.issue.labels.*.name, 'ai-test-run') || github.event_name == 'workflow_dispatch'
     needs: cleanup-artifacts
     runs-on: ubuntu-latest
     outputs:
@@ -143,6 +138,84 @@ jobs:
             echo "coverage_available=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Generate Test Intelligence Report
+        id: intelligence-analysis
+        if: always() && steps.test-execution.outcome == 'failure'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          cd target-repo
+
+          # Create intelligence analysis script
+          cat > analyze_failures.py << 'EOF'
+          import os
+          import json
+          import sys
+          sys.path.append('../ai-test-generator')
+
+          from ai_c_test_generator.intelligence import TestIntelligenceAnalyzer
+
+          def parse_test_results():
+              results = {}
+              test_reports_dir = "tests/test_reports"
+
+              if not os.path.exists(test_reports_dir):
+                  return results
+
+              for filename in os.listdir(test_reports_dir):
+                  if filename.endswith('.txt'):
+                      test_name = filename.replace('.txt', '')
+                      filepath = os.path.join(test_reports_dir, filename)
+
+                      with open(filepath, 'r') as f:
+                          content = f.read()
+
+                      # Determine if test passed
+                      passed = "PASSED" in content and "FAILED" not in content
+
+                      results[test_name] = {
+                          'passed': passed,
+                          'error_output': content if not passed else '',
+                          'compilation_errors': []  # Could be enhanced to parse actual errors
+                      }
+
+              return results
+
+          def main():
+              # Get test results
+              test_results = parse_test_results()
+
+              # Get source files
+              source_files = []
+              if os.path.exists('src'):
+                  source_files = [f for f in os.listdir('src') if f.endswith('.c') or f.endswith('.h')]
+
+              # Initialize intelligence analyzer
+              analyzer = TestIntelligenceAnalyzer(os.environ.get('GEMINI_API_KEY'))
+
+              # Generate intelligence report
+              intelligence_report = analyzer.analyze_test_failures(test_results, source_files)
+
+              # Save reports
+              os.makedirs('reports', exist_ok=True)
+              analyzer.generate_intelligence_report('reports/test_analysis.md', intelligence_report)
+              analyzer.generate_fix_priority_csv('reports/fix_priority.csv', intelligence_report)
+
+              # Save JSON report for workflow
+              with open('reports/intelligence_report.json', 'w') as f:
+                  json.dump(intelligence_report, f, indent=2)
+
+              print("Intelligence analysis complete!")
+              print(f"Quality Score: {intelligence_report['quality_metrics']['quality_score']}/100")
+              print(f"Time Savings: {intelligence_report['executive_summary']['total_time_savings']}")
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          # Run intelligence analysis
+          python analyze_failures.py
+
       - name: Comment test results on issue
         if: github.event_name == 'issues'
         uses: actions/github-script@v7
@@ -157,6 +230,37 @@ jobs:
               body = `[SUCCESS] **AI Test Execution Completed Successfully!**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nAll tests passed! [SUCCESS]`;
             } else {
               body = `[FAILED] **AI Test Execution Completed with Failures**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nSome tests failed. Please check the detailed test reports in the workflow artifacts.`;
+
+              // Add intelligence insights if available
+              try {
+                const fs = require('fs');
+                const intelligenceData = fs.existsSync('target-repo/reports/intelligence_report.json') ?
+                  fs.readFileSync('target-repo/reports/intelligence_report.json', 'utf8') : null;
+
+                if (intelligenceData) {
+                  const report = JSON.parse(intelligenceData);
+                  const qualityScore = report.quality_metrics?.quality_score || 'N/A';
+                  const timeSavings = report.executive_summary?.total_time_savings || 'N/A';
+                  const topFixes = report.priority_fixes?.slice(0, 3) || [];
+
+                  body += `\n\n## 🔍 Test Intelligence Analysis\n`;
+                  body += `**Quality Score**: ${qualityScore}/100\n`;
+                  body += `**Estimated Time Savings**: ${timeSavings}\n\n`;
+
+                  if (topFixes.length > 0) {
+                    body += `### 🚀 Priority Fixes (Quick Wins)\n`;
+                    topFixes.forEach((fix, index) => {
+                      body += `${index + 1}. **${fix.test_name}** (${fix.estimated_time})\n`;
+                      body += `   - ${fix.root_cause}\n`;
+                      body += `   - Impact: ${fix.impact}\n\n`;
+                    });
+                  }
+
+                  body += `📊 **Full Intelligence Report**: Download \`test_analysis.md\` and \`fix_priority.csv\` from workflow artifacts.\n`;
+                }
+              } catch (error) {
+                console.log('Intelligence report not available:', error.message);
+              }
             }
 
             if (coverageAvailable === 'true') {
@@ -172,69 +276,6 @@ jobs:
               body: body
             });
 
-      - name: Create branch and PR for failing tests
-        if: steps.test-execution.outcome == 'failure' && github.event_name != 'pull_request'
-        id: create_fix_pr
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd target-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
-          BRANCH="ai/generated-tests/${TIMESTAMP}"
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-          git checkout -b "${BRANCH}"
-          git add tests/ || true
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: add generated tests that need fixing (${TIMESTAMP})"
-            git push --set-upstream origin "${BRANCH}"
-            echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
-            echo "created=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to commit"
-            echo "created=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create PR to fix failing tests
-        if: steps.create_fix_pr.outputs.created == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const branch = '${{ steps.create_fix_pr.outputs.branch }}';
-            const title = 'fix failing test values based on latest test run';
-            const body = `## Test Failures Detected
-
-The latest test run failed. The generated tests have been committed to this branch.
-
-### Next Steps:
-1. Assign the Copilot agent to this PR
-2. Comment: \`@copilot fix the expected values in the failing unit tests based on actual runtime output in the test report.\`
-3. Copilot will update the test files and push commits
-4. CI will run again automatically
-5. Review and merge when tests pass
-
-### Test Summary:
-\`\`\`
-${{ steps.test-summary.outputs.summary }}
-\`\`\`
-
-Test reports are available in the workflow artifacts.`;
-
-            const pr = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              head: branch,
-              base: 'main',
-              body: body,
-              maintainer_can_modify: true
-            });
-
-            console.log(`Created PR: ${pr.data.html_url}`);
-
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -249,6 +290,14 @@ Test reports are available in the workflow artifacts.`;
         with:
           name: coverage-reports
           path: target-repo/tests/coverage_reports/
+          retention-days: 30
+
+      - name: Upload intelligence reports
+        if: always() && steps.intelligence-analysis.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: intelligence-reports
+          path: target-repo/reports/
           retention-days: 30
 
   upload-pages-artifact:
