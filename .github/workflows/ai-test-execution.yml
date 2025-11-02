@@ -149,15 +149,15 @@ jobs:
 
             let body;
             if (testExitCode) {
-              body = `✅ **AI Test Execution Completed Successfully!**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nAll tests passed! 🎉`;
+              body = `[SUCCESS] **AI Test Execution Completed Successfully!**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nAll tests passed! [SUCCESS]`;
             } else {
-              body = `❌ **AI Test Execution Completed with Failures**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nSome tests failed. Please check the detailed test reports in the workflow artifacts.`;
+              body = `[FAILED] **AI Test Execution Completed with Failures**\n\n## Test Results\n\`\`\`\n${testSummary}\n\`\`\`\n\nSome tests failed. Please check the detailed test reports in the workflow artifacts.`;
             }
 
             if (coverageAvailable === 'true') {
-              body += `\n\n## Coverage Report\n📊 Coverage reports are available:\n- **GitHub Pages**: https://${context.repo.owner}.github.io/${context.repo.repo}/\n- **Download Artifacts**: Download the "test-reports" and "coverage-reports" artifacts from this workflow run to view detailed information.`;
+              body += `\n\n## Coverage Report\n[COVERAGE] Coverage reports are available:\n- **GitHub Pages**: https://${context.repo.owner}.github.io/${context.repo.repo}/\n- **Download Artifacts**: Download the "test-reports" and "coverage-reports" artifacts from this workflow run to view detailed information.`;
             } else {
-              body += `\n\n## Test Reports\n📋 Test reports are available in the "test-reports" artifact from this workflow run.`;
+              body += `\n\n## Test Reports\n[REPORTS] Test reports are available in the "test-reports" artifact from this workflow run.`;
             }
 
             github.rest.issues.createComment({
