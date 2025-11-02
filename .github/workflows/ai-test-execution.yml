@@ -100,6 +100,11 @@ jobs:
           # Set PYTHONPATH to include ai-test-generator for imports
           echo "PYTHONPATH=$GITHUB_WORKSPACE/ai-test-generator:$PYTHONPATH" >> $GITHUB_ENV
 
+      - name: Install AI test generator dependencies
+        run: |
+          cd ai-test-generator
+          pip install -r requirements.txt
+
       - name: Run AI tests
         id: test-execution
         continue-on-error: true
