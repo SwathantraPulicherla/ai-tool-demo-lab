@@ -1,0 +1,47 @@
+name: AI Test Generation and Execution
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential lcov
+
+    - name: Clone and Install AI Test Generator
+      run: |
+        git clone https://github.com/SwathantraPulicherla/ai-tool-gen-lab.git
+        cd ai-tool-gen-lab
+        pip install -e .
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Clone and Install AI Test Runner
+      run: |
+        git clone https://github.com/SwathantraPulicherla/ai-tool-run-lab.git
+        cd ai-tool-run-lab
+        pip install -e .
+
+    - name: Generate Tests
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        ai-c-testgen --repo-path . --source-dir src --output tests
+
+    - name: Run Tests
+      run: |
+        ai-test-runner --repo-path .
