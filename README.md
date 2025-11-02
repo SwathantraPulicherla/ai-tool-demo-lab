@@ -25,6 +25,23 @@ demo-c-project/
 - **Temperature Converter**: Converts between Celsius, Fahrenheit, and Kelvin
 - **Main Application**: Demonstrates usage of sensor and converter modules
 
+## CI/CD Integration
+
+This project includes automated AI-powered test generation and execution via GitHub Actions.
+
+### Setup
+
+1. Add your `GEMINI_API_KEY` as a repository secret in GitHub Settings > Secrets and variables > Actions
+2. Push changes or create a PR to trigger the workflow
+
+### Workflow
+
+The CI pipeline will:
+1. Clone the AI Test Generator and AI Test Runner tools
+2. Generate comprehensive unit tests using Google Gemini AI
+3. Compile and execute all tests
+4. Generate coverage reports
+
 ## Using AI C Test Generator
 
 This project is structured to work seamlessly with the [AI C Test Generator](https://github.com/SwathantraPulicherla/ai-c-test-generator) tool.
