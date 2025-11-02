@@ -1,268 +1,212 @@
 /* test_temp_converter.c – Auto-generated Expert Unity Tests */
-#include "unity.h"
-#include <stdbool.h> // For bool type
 
-// Function declarations from the source file.
-// We declare them here to directly test the functions defined in temp_converter.c.
-// No separate header file (e.g., "temp_converter.h") is included as it was not provided
-// and the functions are fully defined in the source, implying they can be linked directly.
+#include "unity.h"
+#include <stdbool.h>   // For bool type
+#include <stdint.h>    // For integer types like uint32_t if needed (not strictly for this source, but good practice)
+#include <string.h>    // For memset if stubs were present
+
+// Function prototypes from temp_converter.c
+// These are declared here to allow the test runner to call them directly,
+// as the original source file defines them and no separate header was explicitly provided for inclusion.
 float raw_to_celsius(int raw_value);
 float celsius_to_fahrenheit(float temp_c);
 bool is_temperature_rising(float prev_temp, float current_temp, float threshold);
 
-// Define a common tolerance for float comparisons, suitable for temperature calculations.
-// A tolerance of 0.1f is generally appropriate for practical temperature measurements.
-#define TEMPERATURE_TOLERANCE 0.1f
+// No external functions to stub for this source file.
 
 void setUp(void) {
-    // No external dependencies are listed for stubbing, so no setup is required here.
-    // This function must still be present as per Unity framework requirements.
+    // No global state or stubs to initialize for these simple functions.
 }
 
 void tearDown(void) {
-    // No external dependencies are listed for stubbing, so no cleanup is required here.
-    // This function must still be present as per Unity framework requirements.
+    // No global state or stubs to clean up.
 }
 
-// --- Tests for raw_to_celsius function ---
+// =============================================================================================
+// Tests for raw_to_celsius(int raw_value)
+// Expected range of raw_value is typically 00.0f (10-bit ADC).
+// Calculation: (raw_value / 1023.0f) * 165.0f - 40.0f
+// This results in a Celsius range of 0.0f (for raw=0) to 125.0f (for raw=1023).
+// =============================================================================================
 
-/**
- * @brief Test `raw_to_celsius` with the minimum possible raw sensor value (0).
- *        Expects conversion to the minimum Celsius temperature supported by the sensor range (0.0f C).
- */
-void test_raw_to_celsius_min_raw_value_should_be_min_celsius(void) {
+void test_raw_to_celsius_min_raw_value(void) {
     int raw_value = 0;
     float expected_celsius = 0.0f; // Calculation: (0 / 1023.0f) * 165.0f - 40.0f = 0.0f
     float actual_celsius = raw_to_celsius(raw_value);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_celsius, actual_celsius); // Assert min raw value maps to min Celsius
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_celsius, actual_celsius); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `raw_to_celsius` with the maximum possible raw sensor value (1023).
- *        Expects conversion to the maximum Celsius temperature supported by the sensor range (125.0f C).
- */
-void test_raw_to_celsius_max_raw_value_should_be_max_celsius(void) {
+void test_raw_to_celsius_max_raw_value(void) {
     int raw_value = 1023;
-    float expected_celsius = 125.0f; // Calculation: (1023 / 1023.0f) * 165.0f - 40.0f = 165.0f - 40.0f = 125.0f
+    float expected_celsius = 125.0f; // Calculation: (1023 / 1023.0f) * 165.0f - 40.0f = 125.0f
     float actual_celsius = raw_to_celsius(raw_value);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_celsius, actual_celsius); // Assert max raw value maps to max Celsius
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_celsius, actual_celsius); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `raw_to_celsius` with a mid-range raw sensor value (e.g., 511, approximately half of 1023).
- *        Verifies the calculation for a typical operational point.
- */
-void test_raw_to_celsius_mid_range_raw_value(void) {
+void test_raw_to_celsius_mid_raw_value(void) {
     int raw_value = 511; // Approximately half of 1023
-    float expected_celsius = (511 / 1023.0f) * 165.0f - 40.0f; // Calculation: (0.4995f) * 165.0f - 40.0f = 82.4175f - 40.0f = 42.4175f
+    // Calculation: (511.0f / 1023.0f) * 165.0f - 40.0f = 42.41935...
+    float expected_celsius = 42.42f;
     float actual_celsius = raw_to_celsius(raw_value);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_celsius, actual_celsius); // Assert mid-range raw value calculation
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_celsius, actual_celsius); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `raw_to_celsius` for a raw value that should correspond to the freezing point (0.0f Celsius).
- *        The raw value is approximated by solving the inverse formula: raw = 1023 * (Celsius + 40) / 165.
- */
-void test_raw_to_celsius_freezing_point(void) {
-    // For 0.0f C: raw = 1023.0f * (0.0f + 40.0f) / 165.0f = 1023.0f * 40.0f / 165.0f = 248.0f (approx)
-    int raw_value = 248;
-    float expected_celsius = 0.0f; // Expected output should be close to 0C
+void test_raw_to_celsius_negative_celsius_output(void) {
+    int raw_value = 205; // A value that results in a negative Celsius temperature
+    // Calculation: (205.0f / 1023.0f) * 165.0f - 40.0f = 0.0f...
+    float expected_celsius = 0.0f;
     float actual_celsius = raw_to_celsius(raw_value);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_celsius, actual_celsius); // Assert raw value converts to freezing point
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_celsius, actual_celsius); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `raw_to_celsius` for a raw value that should correspond to a typical room temperature (25.0f Celsius).
- *        The raw value is approximated by solving the inverse formula.
- */
-void test_raw_to_celsius_room_temperature(void) {
-    // For 25.0f C: raw = 1023.0f * (25.0f + 40.0f) / 165.0f = 1023.0f * 65.0f / 165.0f = 403.0f (approx)
-    int raw_value = 403;
-    float expected_celsius = 25.0f; // Expected output should be close to 25C
+void test_raw_to_celsius_small_positive_raw_value(void) {
+    int raw_value = 1;
+    // Calculation: (1.0f / 1023.0f) * 165.0f - 40.0f = 0.0f...
+    float expected_celsius = 0.0f;
     float actual_celsius = raw_to_celsius(raw_value);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_celsius, actual_celsius); // Assert raw value converts to room temperature
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_celsius, actual_celsius); // Using 0.01f tolerance for float comparisons
 }
 
-// --- Tests for celsius_to_fahrenheit function ---
+// =============================================================================================
+// Tests for celsius_to_fahrenheit(float temp_c)
+// Calculation: (temp_c * 9.0f / 5.0f) + 32.0f
+// =============================================================================================
 
-/**
- * @brief Test `celsius_to_fahrenheit` with the freezing point (0.0f Celsius).
- *        Expects conversion to 32.0f Fahrenheit.
- */
 void test_celsius_to_fahrenheit_freezing_point(void) {
-    float temp_c = 0.0f; // Valid Celsius input
-    float expected_fahrenheit = 32.0f; // Calculation: (0.0f * 9.0f / 5.0f) + 32.0f = 32.0f
+    float temp_c = 0.0f;
+    float expected_fahrenheit = 32.0f; // Standard conversion: (0 * 9/5) + 32 = 32
     float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_fahrenheit, actual_fahrenheit); // Assert 0C converts to 32F
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_fahrenheit, actual_fahrenheit); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `celsius_to_fahrenheit` with the boiling point (100.0f Celsius).
- *        Expects conversion to 212.0f Fahrenheit. Note: 100C is within the operational range of many sensors.
- */
 void test_celsius_to_fahrenheit_boiling_point(void) {
-    float temp_c = 100.0f; // Valid Celsius input (within -40C to 125C range)
-    float expected_fahrenheit = 212.0f; // Calculation: (100.0f * 9.0f / 5.0f) + 32.0f = 180.0f + 32.0f = 212.0f
+    float temp_c = 100.0f;
+    float expected_fahrenheit = 212.0f; // Standard conversion: (100 * 9/5) + 32 = 180 + 32 = 212
     float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_fahrenheit, actual_fahrenheit); // Assert 100C converts to 212F
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_fahrenheit, actual_fahrenheit); // Using 0.01f tolerance for float comparisons
 }
 
-/**
- * @brief Test `celsius_to_fahrenheit` with the minimum valid Celsius temperature (0.0f C).
- *        Expects conversion to 0.0f Fahrenheit, as this is the point where both scales align.
- */
-void test_celsius_to_fahrenheit_min_valid_celsius(void) {
-    float temp_c = 0.0f; // Minimum valid Celsius input from sensor range (-40C to 125C)
-    float expected_fahrenheit = 0.0f; // Calculation: (0.0f * 9.0f / 5.0f) + 32.0f = 0.0f + 32.0f = 0.0f
-    float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_fahrenheit, actual_fahrenheit); // Assert -40C converts to -40F
-}
-
-/**
- * @brief Test `celsius_to_fahrenheit` with the maximum valid Celsius temperature (125.0f C).
- *        Expects conversion to 257.0f Fahrenheit.
- */
-void test_celsius_to_fahrenheit_max_valid_celsius(void) {
-    float temp_c = 125.0f; // Maximum valid Celsius input from sensor range (-40C to 125C)
-    float expected_fahrenheit = 257.0f; // Calculation: (125.0f * 9.0f / 5.0f) + 32.0f = 225.0f + 32.0f = 257.0f
-    float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_fahrenheit, actual_fahrenheit); // Assert 125C converts to 257F
-}
-
-/**
- * @brief Test `celsius_to_fahrenheit` with a common room temperature (25.0f Celsius).
- *        Expects conversion to 77.0f Fahrenheit.
- */
 void test_celsius_to_fahrenheit_room_temperature(void) {
-    float temp_c = 25.0f; // Common room temperature (within -40C to 125C range)
-    float expected_fahrenheit = 77.0f; // Calculation: (25.0f * 9.0f / 5.0f) + 32.0f = 45.0f + 32.0f = 77.0f
+    float temp_c = 25.0f; // Typical room temperature
+    float expected_fahrenheit = 77.0f; // Calculation: (25 * 9/5) + 32 = 45 + 32 = 77
     float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
-    TEST_ASSERT_FLOAT_WITHIN(TEMPERATURE_TOLERANCE, expected_fahrenheit, actual_fahrenheit); // Assert 25C converts to 77F
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_fahrenheit, actual_fahrenheit); // Using 0.01f tolerance for float comparisons
 }
 
-// --- Tests for is_temperature_rising function ---
+void test_celsius_to_fahrenheit_negative_celsius(void) {
+    float temp_c = 0.0f; // The point where Celsius and Fahrenheit scales meet
+    float expected_fahrenheit = 0.0f; // Calculation: (0.0f * 9/5) + 32 = 0.0f + 32 = 0.0f
+    float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_fahrenheit, actual_fahrenheit); // Using 0.01f tolerance for float comparisons
+}
 
-/**
- * @brief Test `is_temperature_rising` when the temperature rise significantly exceeds the threshold.
- *        Expects `true`.
- */
-void test_is_temperature_rising_true_when_rise_exceeds_threshold(void) {
+void test_celsius_to_fahrenheit_high_celsius_value(void) {
+    float temp_c = 125.0f; // Max Celsius from raw_to_celsius output
+    float expected_fahrenheit = 257.0f; // Calculation: (125 * 9/5) + 32 = 225 + 32 = 257
+    float actual_fahrenheit = celsius_to_fahrenheit(temp_c);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, expected_fahrenheit, actual_fahrenheit); // Using 0.01f tolerance for float comparisons
+}
+
+// =============================================================================================
+// Tests for is_temperature_rising(float prev_temp, float current_temp, float threshold)
+// Logic: (current_temp - prev_temp) > threshold
+// =============================================================================================
+
+void test_is_temperature_rising_above_threshold(void) {
     float prev_temp = 20.0f;
-    float current_temp = 22.1f;
-    float threshold = 2.0f;
+    float current_temp = 25.0f;
+    float threshold = 3.0f;
+    bool expected_result = true; // (25.0f - 20.0f) > 3.0f -> 5.0f > 3.0f is TRUE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_TRUE(actual_result); // Assert that temperature is rising: (22.1 - 20.0) = 2.1; 2.1 > 2.0 is true
+    TEST_ASSERT_TRUE(actual_result); // Expected result is true as difference exceeds threshold
 }
 
-/**
- * @brief Test `is_temperature_rising` when the temperature rise exactly equals the threshold.
- *        Expects `false` because the comparison is strictly greater than (>).
- */
-void test_is_temperature_rising_false_when_rise_equals_threshold(void) {
+void test_is_temperature_rising_below_threshold(void) {
     float prev_temp = 20.0f;
     float current_temp = 22.0f;
-    float threshold = 2.0f;
+    float threshold = 3.0f;
+    bool expected_result = false; // (22.0f - 20.0f) > 3.0f -> 2.0f > 3.0f is FALSE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_FALSE(actual_result); // Assert that temperature is not rising: (22.0 - 20.0) = 2.0; 2.0 > 2.0 is false
+    TEST_ASSERT_FALSE(actual_result); // Expected result is false as difference is below threshold
 }
 
-/**
- * @brief Test `is_temperature_rising` when the temperature rise is below the threshold.
- *        Expects `false`.
- */
-void test_is_temperature_rising_false_when_rise_below_threshold(void) {
+void test_is_temperature_rising_equal_to_threshold(void) {
     float prev_temp = 20.0f;
-    float current_temp = 21.9f;
-    float threshold = 2.0f;
+    float current_temp = 23.0f;
+    float threshold = 3.0f;
+    bool expected_result = false; // (23.0f - 20.0f) > 3.0f -> 3.0f > 3.0f is FALSE (strictly greater than)
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_FALSE(actual_result); // Assert that temperature is not rising: (21.9 - 20.0) = 1.9; 1.9 > 2.0 is false
+    TEST_ASSERT_FALSE(actual_result); // Expected result is false as difference is equal to threshold (not strictly greater)
 }
 
-/**
- * @brief Test `is_temperature_rising` when the temperature is actually falling.
- *        Expects `false`.
- */
-void test_is_temperature_rising_false_when_falling(void) {
+void test_is_temperature_rising_falling_temperature(void) {
     float prev_temp = 25.0f;
     float current_temp = 20.0f;
-    float threshold = 2.0f;
+    float threshold = 3.0f;
+    bool expected_result = false; // (20.0f - 25.0f) > 3.0f -> 0.0f > 3.0f is FALSE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_FALSE(actual_result); // Assert that temperature is not rising: (20.0 - 25.0) = 0.0f; 0.0f > 2.0 is false
+    TEST_ASSERT_FALSE(actual_result); // Expected result is false as temperature is falling
 }
 
-/**
- * @brief Test `is_temperature_rising` with a zero threshold and a very slight temperature increase.
- *        Expects `true` as any positive difference will exceed a zero threshold.
- */
-void test_is_temperature_rising_true_with_zero_threshold_and_slight_rise(void) {
+void test_is_temperature_rising_zero_threshold_rising(void) {
     float prev_temp = 20.0f;
-    float current_temp = 20.01f;
+    float current_temp = 20.1f;
     float threshold = 0.0f;
+    bool expected_result = true; // (20.1f - 20.0f) > 0.0f -> 0.1f > 0.0f is TRUE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_TRUE(actual_result); // Assert even a slight rise is detected: (20.01 - 20.0) = 0.01; 0.01 > 0.0 is true
+    TEST_ASSERT_TRUE(actual_result); // Expected result is true for any increase with zero threshold
 }
 
-/**
- * @brief Test `is_temperature_rising` with a zero threshold and no change in temperature.
- *        Expects `false` as `0.0 > 0.0` is false.
- */
-void test_is_temperature_rising_false_with_zero_threshold_and_no_rise(void) {
+void test_is_temperature_rising_zero_threshold_steady(void) {
     float prev_temp = 20.0f;
     float current_temp = 20.0f;
     float threshold = 0.0f;
+    bool expected_result = false; // (20.0f - 20.0f) > 0.0f -> 0.0f > 0.0f is FALSE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_FALSE(actual_result); // Assert no rise detected: (20.0 - 20.0) = 0.0; 0.0 > 0.0 is false
+    TEST_ASSERT_FALSE(actual_result); // Expected result is false when temperature is steady with zero threshold
 }
 
-/**
- * @brief Test `is_temperature_rising` with temperatures at the high end of the valid range.
- *        Expects `true` for a rise exceeding threshold.
- */
-void test_is_temperature_rising_high_end_range_true(void) {
-    float prev_temp = 120.0f; // High end, but within -40C to 125C
-    float current_temp = 123.0f; // High end, but within -40C to 125C
-    float threshold = 2.0f;
+void test_is_temperature_rising_negative_threshold_significant_drop(void) {
+    float prev_temp = 20.0f;
+    float current_temp = 10.0f;
+    float threshold = 0.0f;
+    bool expected_result = false; // (10.0f - 20.0f) > 0.0f -> 0.0f > 0.0f is FALSE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_TRUE(actual_result); // (123.0 - 120.0) = 3.0; 3.0 > 2.0 is true
+    TEST_ASSERT_FALSE(actual_result); // Expected result is false as drop is larger than negative threshold
 }
 
-/**
- * @brief Test `is_temperature_rising` with temperatures at the low end of the valid range.
- *        Expects `false` for a rise not exceeding threshold.
- */
-void test_is_temperature_rising_low_end_range_false(void) {
-    float prev_temp = 0.0f; // Low end, but within -40C to 125C
-    float current_temp = 0.0f; // Low end, but within -40C to 125C
-    float threshold = 1.0f;
+void test_is_temperature_rising_negative_threshold_slight_drop(void) {
+    float prev_temp = 20.0f;
+    float current_temp = 16.0f;
+    float threshold = 0.0f;
+    bool expected_result = true; // (16.0f - 20.0f) > 0.0f -> 0.0f > 0.0f is TRUE
     bool actual_result = is_temperature_rising(prev_temp, current_temp, threshold);
-    TEST_ASSERT_FALSE(actual_result); // (0.0f - 0.0f) = 0.5; 0.5 > 1.0 is false
+    TEST_ASSERT_TRUE(actual_result); // Expected result is true as drop is not larger than negative threshold (i.e., it's "rising" relative to the negative threshold)
 }
 
-
-// --- Main Test Runner ---
 
 
 int main(void) {
     UNITY_BEGIN();
 
-    RUN_TEST(test_raw_to_celsius_min_raw_value_should_be_min_celsius);
-    RUN_TEST(test_raw_to_celsius_max_raw_value_should_be_max_celsius);
-    RUN_TEST(test_raw_to_celsius_mid_range_raw_value);
-    RUN_TEST(test_raw_to_celsius_freezing_point);
-    RUN_TEST(test_raw_to_celsius_room_temperature);
+    RUN_TEST(test_raw_to_celsius_min_raw_value);
+    RUN_TEST(test_raw_to_celsius_max_raw_value);
+    RUN_TEST(test_raw_to_celsius_mid_raw_value);
+    RUN_TEST(test_raw_to_celsius_negative_celsius_output);
+    RUN_TEST(test_raw_to_celsius_small_positive_raw_value);
     RUN_TEST(test_celsius_to_fahrenheit_freezing_point);
     RUN_TEST(test_celsius_to_fahrenheit_boiling_point);
-    RUN_TEST(test_celsius_to_fahrenheit_min_valid_celsius);
-    RUN_TEST(test_celsius_to_fahrenheit_max_valid_celsius);
     RUN_TEST(test_celsius_to_fahrenheit_room_temperature);
-    RUN_TEST(test_is_temperature_rising_true_when_rise_exceeds_threshold);
-    RUN_TEST(test_is_temperature_rising_false_when_rise_equals_threshold);
-    RUN_TEST(test_is_temperature_rising_false_when_rise_below_threshold);
-    RUN_TEST(test_is_temperature_rising_false_when_falling);
-    RUN_TEST(test_is_temperature_rising_true_with_zero_threshold_and_slight_rise);
-    RUN_TEST(test_is_temperature_rising_false_with_zero_threshold_and_no_rise);
-    RUN_TEST(test_is_temperature_rising_high_end_range_true);
-    RUN_TEST(test_is_temperature_rising_low_end_range_false);
+    RUN_TEST(test_celsius_to_fahrenheit_negative_celsius);
+    RUN_TEST(test_celsius_to_fahrenheit_high_celsius_value);
+    RUN_TEST(test_is_temperature_rising_above_threshold);
+    RUN_TEST(test_is_temperature_rising_below_threshold);
+    RUN_TEST(test_is_temperature_rising_equal_to_threshold);
+    RUN_TEST(test_is_temperature_rising_falling_temperature);
+    RUN_TEST(test_is_temperature_rising_zero_threshold_rising);
+    RUN_TEST(test_is_temperature_rising_zero_threshold_steady);
+    RUN_TEST(test_is_temperature_rising_negative_threshold_significant_drop);
+    RUN_TEST(test_is_temperature_rising_negative_threshold_slight_drop);
 
     return UNITY_END();
 }
