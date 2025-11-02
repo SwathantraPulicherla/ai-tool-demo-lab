@@ -68,14 +68,14 @@ jobs:
       - name: Checkout AI tools
         uses: actions/checkout@v4
         with:
-          repository: SwathantraPulicherla/ai-test-runner
+          repository: SwathantraPulicherla/ai-tool-run-lab
           path: ai-tools
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout AI test generator
         uses: actions/checkout@v4
         with:
-          repository: SwathantraPulicherla/ai-c-test-generator
+          repository: SwathantraPulicherla/ai-tool-gen-lab
           path: ai-test-generator
           token: ${{ secrets.GITHUB_TOKEN }}
 
