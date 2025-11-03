@@ -1,9 +1,7 @@
 Validation Report for test_temp_converter.c
-Quality: Medium
+Quality: High
 Compiles: True
-Realistic: False
-Issues: 2
+Realistic: True
+Issues: 0
 
 Issues:
-- Temperature value 212.0 seems unreasonably high (valid range: -40°C to 125°C)
-- Temperature value 257.0 seems unreasonably high (valid range: -40°C to 125°C)

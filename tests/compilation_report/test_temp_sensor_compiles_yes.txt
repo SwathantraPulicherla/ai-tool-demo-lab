@@ -1,7 +1,8 @@
 Validation Report for test_temp_sensor.c
-Quality: High
+Quality: Medium
 Compiles: True
-Realistic: True
-Issues: 0
+Realistic: False
+Issues: 1
 
 Issues:
+- Temperature value 2048.0 seems unreasonably high (valid range: -40°C to 125°C)
